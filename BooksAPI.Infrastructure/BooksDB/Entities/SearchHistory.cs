@@ -4,9 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace BooksAPI.Core
+namespace BooksAPI.Infrastructure.BooksDB.Entities
 {
-    public class Class1
+    class SearchHistory
     {
     }
 }
