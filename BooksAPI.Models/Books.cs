@@ -1,4 +1,6 @@
-﻿namespace BooksAPI.Models
+﻿using System;
+
+namespace BooksAPI.Models
 {
     public class Books
     {
