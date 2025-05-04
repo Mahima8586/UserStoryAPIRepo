@@ -21,6 +21,8 @@ namespace BooksAPI.Core.RequestHandler.BooksSearchHandler
     }
     public class BookSearchResponse
     {
+        public string? Query { get; set; }
+
         public List<BookSearchResultsData> Results { get; set; }
     }
 }

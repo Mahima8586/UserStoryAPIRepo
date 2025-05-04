@@ -9,39 +9,25 @@ namespace BookSearchSolution.API.Controllers;
 [Route("api/[controller]")]
 public class BookSearchController : ControllerBase
 {
-    private readonly BooksDbContext _context;
+    private readonly BookSearchHandler _booksSearchHandler;
 
-    public BookSearchController(BooksDbContext context)
+    public BookSearchController(BookSearchHandler booksSearchHandler)
     {
-        _context = context;
+        _booksSearchHandler = booksSearchHandler;
     }
+    
 
     [HttpPost]
     public async Task<ActionResult<BookSearchResponse>> SearchBooks([FromBody] BookSearchRequest request)
     {
-        if (string.IsNullOrWhiteSpace(request.Query))
-            return BadRequest("Search query cannot be empty.");
 
-        var query = request.Query.Trim().ToLower();
+        var result = await _booksSearchHandler.SearchBooks(request);
 
-        var results = await _context.Books
-            .Where(b =>
-                b.Title.ToLower().Contains(query) ||
-                b.Author.ToLower().Contains(query))
-            .Select(b => new BookSearchResultsData
-            {
-                Id = b.Id,
-                Title = b.Title,
-                Author = b.Author
-            })
-            .ToListAsync();
-
-        var response = new BookSearchResponse
+        if (result == null)
         {
-            Query = request.Query,
-            Results = results
-        };
+            return NotFound("No books found matching your search query.");
+        }
 
-        return Ok(response);
+        return Ok(result);
     }
 }

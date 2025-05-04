@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using BooksAPI.Core.RequestHandler.SortStrategies;
 using BooksAPI.Infrastructure;
 using BooksAPI.Infrastructure.BooksDB.Entities;
+using Microsoft.EntityFrameworkCore;
 
 namespace BooksAPI.Core.RequestHandler.BooksSearchHandler
 {

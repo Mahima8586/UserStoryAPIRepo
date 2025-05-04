@@ -1,5 +1,5 @@
-﻿using System.Data.Entity;
-using BooksAPI.Infrastructure.BooksDB.Entities;
+﻿using BooksAPI.Infrastructure.BooksDB.Entities;
+using Microsoft.EntityFrameworkCore;
 
 namespace BooksAPI.Infrastructure
 {
@@ -12,3 +12,4 @@ namespace BooksAPI.Infrastructure
     }
     
 }
+
