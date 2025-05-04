@@ -9,6 +9,7 @@ namespace BooksAPI.Infrastructure
             : base(options) { }
 
         public DbSet<Books> Books { get; set; }
+        public DbSet<SearchHistory> SearchHistory { get; set; }
     }
     
 }
