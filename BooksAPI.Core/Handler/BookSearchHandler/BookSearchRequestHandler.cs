@@ -1,128 +1,111 @@
 ﻿using System;
 using System.Linq;
 using System.Threading.Tasks;
+using BooksAPI.Core.Handler.BookSearchHandler;
 using BooksAPI.Core.RequestHandler.SortStrategies;
 using BooksAPI.Infrastructure;
 using BooksAPI.Infrastructure.BooksDB.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using Serilog;
 
 namespace BooksAPI.Core.RequestHandler.BooksSearchHandler
 {
     public class BookSearchHandler
     {
         private readonly BooksDbContext _context;
-        private readonly ILogger<BookSearchHandler> _logger; 
+        private readonly GenericFilterService<Books> _filterService;
+        private readonly BookSearchService _searchService;
+        private readonly IBookSortStrategy _sortStrategy;
+        private readonly ILogger<BookSearchHandler> _logger;
 
-        public BookSearchHandler(BooksDbContext context, ILogger<BookSearchHandler> logger)
+        public BookSearchHandler(
+            BooksDbContext context,
+            GenericFilterService<Books> filterService,
+            BookSearchService searchService,
+            IBookSortStrategy sortStrategy,
+            ILogger<BookSearchHandler> logger)
         {
             _context = context;
-            _logger = logger;  
+            _filterService = filterService;
+            _searchService = searchService;
+            _sortStrategy = sortStrategy;
+            _logger = logger;
         }
 
         public async Task<BookSearchResponse> SearchBooks(BookSearchRequest request)
         {
-            _logger.LogInformation("SearchBooks API called with parameters: {@Request}", request);
-
-            IQueryable<Books> query = _context.Books;
+            if (request == null)
+            {
+                _logger.LogWarning("Book search attempted with null request.");
+                throw new ArgumentNullException(nameof(request), "Search request cannot be null.");
+            }
 
             try
             {
-                if (request != null)
+                _logger.LogInformation("Book search initiated. Parameters: {@Request}", request);
+
+                var query = _context.Books.AsQueryable();
+
+                try
                 {
-                    if (request.Id != 0 && request.Id != null)
-                        query = query.Where(b => b.Id == request.Id);
-
-                    if (!string.IsNullOrWhiteSpace(request.Title))
-                    {
-                        query = query.Where(b => b.Title.ToLower().Contains(request.Title.ToLower()));
-                    }
-
-                    if (!string.IsNullOrWhiteSpace(request.Author))
-                    {
-                        query = query.Where(b => b.Author.ToLower().Contains(request.Author.ToLower()));
-                    }
-
-                    if (!string.IsNullOrWhiteSpace(request.Genre))
-                    {
-                        query = query.Where(b => b.Genre.ToLower().Contains(request.Genre.ToLower()));
-                    }
-
-                    if (!string.IsNullOrWhiteSpace(request.Description))
-                    {
-                        query = query.Where(b => b.Description.ToLower().Contains(request.Description.ToLower()));
-                    }
-
-                    if (request.PublishedDate != null)
-                        query = query.Where(b => b.PublishedDate == request.PublishedDate);
-
-                    if (request.Pages != 0 && request.Pages != null)
-                        query = query.Where(b => b.Pages == request.Pages);
-
-                    if (request.PublishedFrom.HasValue)
-                        query = query.Where(b => b.PublishedDate >= request.PublishedFrom.Value);
-
-                    if (request.PublishedTo.HasValue)
-                        query = query.Where(b => b.PublishedDate <= request.PublishedTo.Value);
-
-                    if (request.MinPages.HasValue)
-                        query = query.Where(b => b.Pages >= request.MinPages.Value);
-
-                    if (request.MaxPages.HasValue)
-                        query = query.Where(b => b.Pages <= request.MaxPages.Value);
-
-                    var sorter = BookSortStrategyFactory.GetStrategy(request.SortBy);
-                    query = sorter.ApplySort(query, request.Query);
+                    query = _filterService.ApplyFilters(query, request.Filters);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to apply filters for request: {@Request}", request);
+                    throw new InvalidOperationException("There was a problem applying search filters. Please check your filter values.");
                 }
 
-                var results = await query
-                    .Select(b => new BookSearchResultsData
-                    {
-                        Id = b.Id,
-                        Title = b.Title,
-                        Author = b.Author,
-                        Genre = b.Genre,
-                        Description = b.Description,
-                        PublishedDate = Convert.ToDateTime(b.PublishedDate).Date,
-                        Pages = b.Pages
-                    })
-                    .ToListAsync();
-
-                _logger.LogInformation("Search found {ResultsCount} books matching the query.", results.Count);
-
-                var searchHistory = new SearchHistory
+                try
                 {
-                    UserId = 12345,  
-                    SearchTerm = request.Query,
-                    Title = request.Title,
-                    Author = request.Author,
-                    Genre = request.Genre,
-                    Description = request.Description,
-                    PublishedDate = request.PublishedDate,
-                    Pages = request.Pages,
-                    MinPages = request.MinPages,
-                    MaxPages = request.MaxPages,
-                    PublishedFrom = request.PublishedFrom,
-                    PublishedTo = request.PublishedTo,
-                    SortBy = request.SortBy,
-                    SearchDate = DateTime.UtcNow 
-                };
+                    query = _searchService.ApplySearch(query, request.Query);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to apply keyword search: {Keyword}", request.Query);
+                    throw new InvalidOperationException("There was a problem with your keyword search. Try simplifying your query.");
+                }
 
-                _logger.LogInformation("Saving search history for query: {@SearchHistory}", searchHistory);
+                try
+                {
+                    query = _sortStrategy.ApplySort(query, request.SortField, request.SortOrder, request.Query);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Sorting failed for field '{Field}' and order '{Order}'", request.SortField, request.SortOrder);
+                    throw new InvalidOperationException("An error occurred while sorting. Please review your sort field and order.");
+                }
 
-                await _context.SearchHistory.AddAsync(searchHistory);
-                await _context.SaveChangesAsync();
+                var results = await query.Select(b => new BookSearchResultsData
+                {
+                    Id = b.Id,
+                    Title = b.Title,
+                    Author = b.Author,
+                    Genre = b.Genre,
+                    Description = b.Description,
+                    PublishedDate = b.PublishedDate,
+                    Pages = b.Pages
+                }).ToListAsync();
+
+                _logger.LogInformation("Search completed. Found {Count} books.", results.Count);
 
                 return new BookSearchResponse
                 {
                     Results = results
                 };
             }
+            catch (ArgumentNullException ex)
+            {
+                throw;
+            }
+            catch (InvalidOperationException ex)
+            {
+                throw;
+            }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error occurred while searching for books with query: {@Request}", request);
-                throw;  
+                _logger.LogCritical(ex, "Unexpected error occurred during book search.");
+                throw new ApplicationException("An unexpected error occurred while processing your search. Please try again later.");
             }
         }
     }

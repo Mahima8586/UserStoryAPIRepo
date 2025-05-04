@@ -1,24 +1,21 @@
-﻿using System;
+﻿// File: BookSortStrategyFactory.cs
+using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace BooksAPI.Core.RequestHandler.SortStrategies
 {
-    public static class BookSortStrategyFactory
+    public class BookSortStrategyFactory : IBookSortStrategyFactory
     {
-        public static IBookSortStrategy GetStrategy(string sortBy)
+        private readonly IBookSortStrategy _genericStrategy;
+
+        public BookSortStrategyFactory(IBookSortStrategy genericStrategy)
         {
-            return sortBy?.ToLower() switch
-            {
-                "title_asc" => new TitleAscSort(),
-                
-                "pages_asc" => new PagesAscSort(),
-                "relevance" => new RelevanceSort(),
-                _ => new TitleAscSort()
-            };
+            _genericStrategy = genericStrategy;
         }
+
+        public IBookSortStrategy GetStrategy() => _genericStrategy;
     }
+
 
 }

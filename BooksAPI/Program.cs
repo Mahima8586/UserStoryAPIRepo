@@ -10,6 +10,8 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using BooksAPI.Middleware.Extensions;
 using Microsoft.AspNetCore.HttpsPolicy;
 using Microsoft.AspNetCore.Builder;
+using BooksAPI.Core.RequestHandler.SortStrategies;
+using BooksAPI.Core.Handler.BookSearchHandler;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -89,6 +91,12 @@ builder.Services.AddSwaggerGen(c =>
         }
     });
 });
+builder.Services.AddScoped<IBookSortStrategy, GenericSortStrategy>();
+builder.Services.AddScoped(typeof(GenericFilterService<>));
+builder.Services.AddScoped<BookSearchService>();
+builder.Services.AddScoped<IBookSortStrategyFactory, BookSortStrategyFactory>();
+builder.Services.AddScoped<BookSearchHandler>();
+
 
 
 builder.Services.AddMemoryCache();
