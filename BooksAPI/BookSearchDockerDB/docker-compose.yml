@@ -1,0 +1,11 @@
+version: '3.9'
+
+services:
+  sqlserver:
+    image: booksearch-sql:latest
+    container_name: booksearch_sql
+    ports:
+      - "1433:1433"
+    environment:
+      ACCEPT_EULA: "Y"
+      SA_PASSWORD: "YourStrong!Pass123"
